@@ -80,12 +80,11 @@
   }
   .drawer.open { transform: translateX(0); }
   .drawer-header {
-    height: 150px; background: #1976D2; color: #fff;
-    display: flex; flex-direction: column; justify-content: flex-end;
-    padding: 20px 20px 16px;
+    height: 56px; background: #1976D2; color: #fff;
+    display: flex; align-items: center;
+    padding: 0 20px;
   }
-  .drawer-header .app-name { font-size: 21px; font-weight: 500; }
-  .drawer-header .app-sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .drawer-header .app-name { font-size: 19px; font-weight: 500; }
   .drawer-item {
     display: flex; align-items: center; gap: 20px;
     padding: 16px 20px; font-size: 17px; color: #212121; cursor: pointer;
@@ -116,7 +115,6 @@
 <nav class="drawer" id="drawer">
   <div class="drawer-header">
     <div class="app-name">Калькулятор технолога</div>
-    <div class="app-sub">ОФ-участок</div>
   </div>
   <div class="drawer-item" data-sec="quality"><span class="icon">⚖</span>Уставка качества</div>
   <div class="drawer-item" data-sec="extraction"><span class="icon">⚗</span>Извлечение</div>
@@ -480,4 +478,4 @@
 })();
 </script>
 </body>
-</html>
+ </html>
