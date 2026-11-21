@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1976D2">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Калькулятор технолога</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: Roboto, -apple-system, "Segoe UI", sans-serif; background: #F5F5F5; }
+
+  /* ===== Верхняя панель ===== */
+  .toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    height: 56px; background: #1976D2; color: #fff;
+    display: flex; align-items: center; padding: 0 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.25);
+  }
+  .hamburger { font-size: 26px; padding: 12px 16px; cursor: pointer; user-select: none; }
+  .toolbar h1 { font-size: 20px; font-weight: 500; margin-left: 4px; }
+
+  /* ===== Контент ===== */
+  .content { padding: 72px 24px 32px; max-width: 640px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .row { display: flex; align-items: center; margin-bottom: 16px; gap: 8px; }
+  .row .label { flex: 1; font-size: 19px; color: #000; }
+  .row input[type=text] {
+    width: 120px; flex-shrink: 0; text-align: center; font-size: 19px;
+    padding: 8px 4px; border: 1px solid #9E9E9E; border-radius: 4px;
+    background: #fff; color: #000; outline: none;
+  }
+  .row input[type=text]:focus { border-color: #1976D2; }
+  .unit { font-size: 19px; color: #000; flex-shrink: 0; }
+
+  .divider { height: 1px; background: #9E9E9E; margin: 32px 0; }
+
+  .block-title { font-size: 23px; font-weight: bold; color: #000; margin-bottom: 16px; }
+
+  .result-box {
+    margin-top: 48px; text-align: center;
+  }
+  .result-box .result-title { font-size: 23px; font-weight: bold; color: #000; margin-bottom: 12px; }
+  .result-value { font-size: 40px; font-weight: bold; color: #1976D2; display: inline-block; }
+  .result-unit { font-size: 26px; font-weight: bold; color: #1976D2; margin-left: 4px; }
+
+  .pill-result {
+    width: 120px; flex-shrink: 0; text-align: center; font-size: 19px; font-weight: bold;
+    color: #1976D2; background: #fff; border: 1px solid #9E9E9E;
+    border-radius: 4px; padding: 8px 4px;
+  }
+
+  /* ===== Настройки ===== */
+  .btn-apply {
+    width: 100%; margin-top: 24px; padding: 14px 0;
+    background: #1976D2; color: #fff; font-size: 18px; font-weight: 500;
+    letter-spacing: 1px; border: none; border-radius: 6px; cursor: pointer;
+  }
+  .btn-apply:active { background: #1565C0; }
+  .contact { margin-top: 32px; font-size: 16px; color: #757575; text-align: center; }
+  .contact a { color: #1976D2; text-decoration: none; }
+
+  /* ===== Боковое меню ===== */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 90;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 280px; z-index: 100;
+    background: #fff; transform: translateX(-100%); transition: transform .25s;
+    box-shadow: 2px 0 8px rgba(0,0,0,.25);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-header {
+    height: 150px; background: #1976D2; color: #fff;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 20px 20px 16px;
+  }
+  .drawer-header .app-name { font-size: 21px; font-weight: 500; }
+  .drawer-header .app-sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .drawer-item {
+    display: flex; align-items: center; gap: 20px;
+    padding: 16px 20px; font-size: 17px; color: #212121; cursor: pointer;
+  }
+  .drawer-item:active { background: #E3F2FD; }
+  .drawer-item.selected { background: #E3F2FD; color: #1976D2; font-weight: 500; }
+  .drawer-item .icon { width: 26px; text-align: center; font-size: 20px; }
+
+  /* ===== Плашка-Toast ===== */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #323232; color: #fff; padding: 12px 22px; border-radius: 24px;
+    font-size: 15px; opacity: 0; transition: all .3s; z-index: 200; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ===== Верхняя панель ===== -->
+<div class="toolbar">
+  <div class="hamburger" id="hamburger">☰</div>
+  <h1 id="toolbar_title">Уставка качества</h1>
+</div>
+
+<!-- ===== Меню ===== -->
+<div class="overlay" id="overlay"></div>
+<nav class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="app-name">Калькулятор технолога</div>
+    <div class="app-sub">ОФ-участок</div>
+  </div>
+  <div class="drawer-item" data-sec="quality"><span class="icon">⚖</span>Уставка качества</div>
+  <div class="drawer-item" data-sec="extraction"><span class="icon">⚗</span>Извлечение</div>
+  <div class="drawer-item" data-sec="reagents"><span class="icon">🧪</span>Реагенты</div>
+  <div class="drawer-item" data-sec="ball"><span class="icon">⚙</span>Шаровая загрузка</div>
+  <div class="drawer-item" data-sec="settings"><span class="icon">🔧</span>Настройки</div>
+</nav>
+
+<div class="content">
+
+  <!-- ================= УСТАВКА КАЧЕСТВА ================= -->
+  <div class="section active" id="sec_quality">
+    <div class="row">
+      <div class="label">План</div>
+      <input type="text" id="plan" maxlength="5" inputmode="decimal" placeholder="00,00" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="row">
+      <div class="label">Анализатор</div>
+      <input type="text" id="analyzer" maxlength="5" inputmode="decimal" placeholder="00,00" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="row">
+      <div class="label">Хим.анализ</div>
+      <input type="text" id="chem" maxlength="5" inputmode="decimal" placeholder="00,00" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="result-box">
+      <div class="result-title">Держать</div>
+      <span class="result-value" id="res_main">00,0</span><span class="result-unit">%</span>
+    </div>
+  </div>
+
+  <!-- ================= ИЗВЛЕЧЕНИЕ ================= -->
+  <div class="section" id="sec_extraction">
+    <div class="row">
+      <div class="label">Питание</div>
+      <input type="text" id="power" maxlength="5" inputmode="decimal" placeholder="0,00" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="row">
+      <div class="label">Качество</div>
+      <input type="text" id="quality" maxlength="5" inputmode="decimal" placeholder="00,00" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="row">
+      <div class="label">Хвосты</div>
+      <input type="text" id="tails" maxlength="5" inputmode="decimal" placeholder="0,000" autocomplete="off">
+      <div class="unit">%</div>
+    </div>
+    <div class="result-box">
+      <div class="result-title">ИЗВЛЕЧЕНИЕ</div>
+      <span class="result-value" id="res_ext">00,00</span><span class="result-unit">%</span>
+    </div>
+  </div>
+
+  <!-- ================= РЕАГЕНТЫ ================= -->
+  <div class="section" id="sec_reagents">
+    <div class="row">
+      <div class="label">Переработка</div>
+      <input type="text" id="throughput" maxlength="5" inputmode="decimal" placeholder="0000" autocomplete="off">
+      <div class="unit">т/ч</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <div class="label">МИБК</div>
+      <div class="pill-result" id="res_mibk">—</div>
+      <div class="unit">г/т</div>
+    </div>
+    <div class="row">
+      <div class="label">Объём</div>
+      <input type="text" id="mibk_volume" maxlength="5" inputmode="decimal" placeholder="0" autocomplete="off">
+      <div class="unit">мл</div>
+    </div>
+    <div class="row">
+      <div class="label">Время</div>
+      <input type="text" id="mibk_time" maxlength="5" inputmode="decimal" placeholder="0" autocomplete="off">
+      <div class="unit">сек</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <div class="label">Реафлот</div>
+      <div class="pill-result" id="res_reflot">—</div>
+      <div class="unit">г/т</div>
+    </div>
+    <div class="row">
+      <div class="label">Объём</div>
+      <input type="text" id="reflot_volume" maxlength="5" inputmode="decimal" placeholder="0" autocomplete="off">
+      <div class="unit">мл</div>
+    </div>
+    <div class="row">
+      <div class="label">Время</div>
+      <input type="text" id="reflot_time" maxlength="5" inputmode="decimal" placeholder="0" autocomplete="off">
+      <div class="unit">сек</div>
+    </div>
+  </div>
+
+  <!-- ================= ШАРОВАЯ ЗАГРУЗКА ================= -->
+  <div class="section" id="sec_ball">
+    <div class="block-title">Мельница ПСИ</div>
+    <div class="row">
+      <div class="label">Видимых рядов</div>
+      <input type="text" id="psi_visible" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+      <div class="unit">шт</div>
+    </div>
+    <div class="row">
+      <div class="label">Уровень загрузки</div>
+      <div class="pill-result" id="res_psi">—</div>
+      <div class="unit">%</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="block-title">Мельница шаровая</div>
+    <div class="row">
+      <div class="label">Видимых рядов</div>
+      <input type="text" id="ball_visible" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+      <div class="unit">шт</div>
+    </div>
+    <div class="row">
+      <div class="label">Уровень загрузки</div>
+      <div class="pill-result" id="res_ball">—</div>
+      <div class="unit">%</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="block-title">Мельница доизмельчения</div>
+    <div class="row">
+      <div class="label">Видимых рядов</div>
+      <input type="text" id="regrind_visible" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+      <div class="unit">шт</div>
+    </div>
+    <div class="row">
+      <div class="label">Уровень загрузки</div>
+      <div class="pill-result" id="res_regrind">—</div>
+      <div class="unit">%</div>
+    </div>
+  </div>
+
+  <!-- ================= НАСТРОЙКИ ================= -->
+  <div class="section" id="sec_settings">
+    <div class="block-title">Плотность реагента</div>
+    <div class="row">
+      <div class="label">МИБК</div>
+      <input type="text" id="mibk_density" maxlength="5" inputmode="decimal" placeholder="0,0" autocomplete="off">
+    </div>
+    <div class="row">
+      <div class="label">Реафлот</div>
+      <input type="text" id="reflot_density" maxlength="5" inputmode="decimal" placeholder="0,0" autocomplete="off">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="block-title">Ряды футеровки барабана</div>
+    <div class="row">
+      <div class="label">Мельница ПСИ</div>
+      <input type="text" id="psi_rows" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+    </div>
+    <div class="row">
+      <div class="label">Мельница шаровая</div>
+      <input type="text" id="ball_rows" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+    </div>
+    <div class="row">
+      <div class="label">Мельница доизмельчения</div>
+      <input type="text" id="regrind_rows" maxlength="2" inputmode="numeric" placeholder="0" autocomplete="off">
+    </div>
+
+    <button class="btn-apply" id="btn_apply">ПРИМЕНИТЬ</button>
+
+    <div class="contact">
+      Обратная связь: <a href="mailto:lolyasher@yandex.ru">lolyasher@yandex.ru</a>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Настройки сохранены!</div>
+
+<script>
+(function () {
+  "use strict";
+  var LS = window.localStorage;
+  function get(k) { return LS.getItem(k) || ""; }
+  function set(k, v) { LS.setItem(k, v); }
+
+  // ===== Санитизация ввода — как TextWatcher в Android =====
+  function sanitizeDec(el) {
+    var s = el.value.replace(/\./g, ",");
+    var i = s.indexOf(",");
+    if (i !== -1) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/,/g, "");
+    if (s.charAt(0) === ",") s = s.slice(1);
+    if (s !== el.value) el.value = s;
+    return s;
+  }
+  function sanitizeInt(el) {
+    var s = el.value.replace(/[^\d]/g, "");
+    if (s !== el.value) el.value = s;
+    return s;
+  }
+  function num(v) { return v.replace(",", "."); }
+  function fmt(n, d) { return n.toFixed(d).replace(".", ","); }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ================= УСТАВКА КАЧЕСТВА =================
+  var inPlan = $("plan"), inAn = $("analyzer"), inChem = $("chem"), resMain = $("res_main");
+
+  function calcMain() {
+    var planS = sanitizeDec(inPlan), anS = sanitizeDec(inAn), chemS = sanitizeDec(inChem);
+    set("plan", planS); set("analyzer", anS); set("chem", chemS);
+    if (anS === "" || chemS === "") { resMain.textContent = ""; return; }
+    var plan  = planS === "" ? 0.0 : parseFloat(num(planS));
+    var an    = parseFloat(num(anS));
+    var chem  = parseFloat(num(chemS));
+    resMain.textContent = fmt(an - chem + plan, 1);
+  }
+
+  // ================= ИЗВЛЕЧЕНИЕ =================
+  var inPower = $("power"), inQuality = $("quality"), inTails = $("tails"), resExt = $("res_ext");
+
+  function calcExt() {
+    var pS = sanitizeDec(inPower), qS = sanitizeDec(inQuality), tS = sanitizeDec(inTails);
+    set("power", pS); set("quality", qS); set("tails", tS);
+    if (pS === "" || qS === "" || tS === "") { resExt.textContent = "—"; return; }
+    var p = parseFloat(num(pS)), q = parseFloat(num(qS)), t = parseFloat(num(tS));
+    if (p === 0 || q === t) { resExt.textContent = "—"; return; }
+    var recovery = (p - t) / (q - t) * 100;
+    resExt.textContent = fmt(recovery * q / p, 2);
+  }
+
+  // ================= РЕАГЕНТЫ =================
+  var inThru = $("throughput");
+  var inMibkV = $("mibk_volume"), inMibkT = $("mibk_time");
+  var inReflV = $("reflot_volume"), inReflT = $("reflot_time");
+  var resMibk = $("res_mibk"), resRefl = $("res_reflot");
+
+  function calcReagents() {
+    var tS = sanitizeDec(inThru);
+    var mVS = sanitizeDec(inMibkV), mTS = sanitizeDec(inMibkT);
+    var rVS = sanitizeDec(inReflV), rTS = sanitizeDec(inReflT);
+    set("throughput", tS); set("mibk_volume", mVS); set("mibk_time", mTS);
+    set("reflot_volume", rVS); set("reflot_time", rTS);
+
+    var densM = num(get("mibk_density"));
+    var densR = num(get("reflot_density"));
+    var t = parseFloat(num(tS));
+
+    function calc(vS, tS2, dens) {
+      if (tS === "" || vS === "" || tS2 === "" || dens === "") return "—";
+      var v = parseFloat(num(vS)), tt = parseFloat(num(tS2)), d = parseFloat(dens);
+      if (tt === 0 || t === 0) return "—";
+      return fmt(3600 * v * d / (tt * t), 2);
+    }
+    resMibk.textContent = calc(mVS, mTS, densM);
+    resRefl.textContent = calc(rVS, rTS, densR);
+  }
+
+  // ================= ШАРОВАЯ ЗАГРУЗКА =================
+  var ballDefs = [
+    { vis: "psi_visible",     rows: "psi_rows",     res: "res_psi" },
+    { vis: "ball_visible",    rows: "ball_rows",    res: "res_ball" },
+    { vis: "regrind_visible", rows: "regrind_rows", res: "res_regrind" }
+  ];
+
+  function calcBall() {
+    ballDefs.forEach(function (b) {
+      var elVis = $(b.vis);
+      var vS = sanitizeInt(elVis);
+      set(b.vis, vS);
+      var tS = get(b.rows);
+      if (tS === "" || vS === "") { $(b.res).textContent = "—"; return; }
+      var total = parseInt(tS, 10), visible = parseInt(vS, 10);
+      if (isNaN(total) || total <= 0 || visible > total) { $(b.res).textContent = "—"; return; }
+      var x = (total - visible) / total;
+      var level = (x - (0.5 / Math.PI) * Math.sin(2 * Math.PI * x)) * 100;
+      $(b.res).textContent = fmt(level, 2);
+    });
+  }
+
+  // ================= НАСТРОЙКИ =================
+  var settingFields = ["mibk_density", "reflot_density", "psi_rows", "ball_rows", "regrind_rows"];
+
+  function loadSettings() {
+    settingFields.forEach(function (k) { $(k).value = get(k); });
+  }
+
+  $("btn_apply").addEventListener("click", function () {
+    settingFields.forEach(function (k) {
+      var el = $(k);
+      set(k, el.id === "mibk_density" || el.id === "reflot_density"
+        ? sanitizeDec(el) : sanitizeInt(el));
+    });
+    calcReagents();
+    calcBall();
+    var t = $("toast");
+    t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 2500);
+  });
+
+  settingFields.forEach(function (k) {
+    $(k).addEventListener("input", function () {
+      if (k === "mibk_density" || k === "reflot_density") sanitizeDec($(k));
+      else sanitizeInt($(k));
+    });
+  });
+
+  // ================= Навигация =================
+  var titles = {
+    quality: "Уставка качества",
+    extraction: "Извлечение",
+    reagents: "Реагенты",
+    ball: "Шаровая загрузка",
+    settings: "Настройки"
+  };
+  var drawer = $("drawer"), overlay = $("overlay");
+  var current = get("last_section");
+  if (!titles[current]) current = "quality";
+
+  function openDrawer() { drawer.classList.add("open"); overlay.classList.add("open"); }
+  function closeDrawer() { drawer.classList.remove("open"); overlay.classList.remove("open"); }
+
+  function showSection(sec) {
+    document.querySelectorAll(".section").forEach(function (s) { s.classList.remove("active"); });
+    $("sec_" + sec).classList.add("active");
+    $("toolbar_title").textContent = titles[sec];
+    document.querySelectorAll(".drawer-item").forEach(function (it) {
+      it.classList.toggle("selected", it.getAttribute("data-sec") === sec);
+    });
+    set("last_section", sec);
+    window.scrollTo(0, 0);
+    closeDrawer();
+  }
+
+  document.querySelectorAll(".drawer-item").forEach(function (it) {
+    it.addEventListener("click", function () { showSection(it.getAttribute("data-sec")); });
+  });
+  $("hamburger").addEventListener("click", openDrawer);
+  overlay.addEventListener("click", closeDrawer);
+
+  // ================= Привязка ввода =================
+  [inPlan, inAn, inChem].forEach(function (el) { el.addEventListener("input", calcMain); });
+  [inPower, inQuality, inTails].forEach(function (el) { el.addEventListener("input", calcExt); });
+  [inThru, inMibkV, inMibkT, inReflV, inReflT].forEach(function (el) { el.addEventListener("input", calcReagents); });
+  ballDefs.forEach(function (b) { $(b.vis).addEventListener("input", calcBall); });
+
+  // ================= Загрузка =================
+  inPlan.value = get("plan"); inAn.value = get("analyzer"); inChem.value = get("chem");
+  inPower.value = get("power"); inQuality.value = get("quality"); inTails.value = get("tails");
+  inThru.value = get("throughput"); inMibkV.value = get("mibk_volume"); inMibkT.value = get("mibk_time");
+  inReflV.value = get("reflot_volume"); inReflT.value = get("reflot_time");
+  ballDefs.forEach(function (b) { $(b.vis).value = get(b.vis); });
+  loadSettings();
+
+  calcMain(); calcExt(); calcReagents(); calcBall();
+  showSection(current);
+})();
+</script>
+</body>
+</html>
